@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Machine-specific config (contains absolute local paths)
+hateful_memes_app/config.json
+
+# Runtime logs
+streamlit.log
+*.log
+
+# Dataset and generated results (large / copyrighted / regenerated)
+data/
+
+# Phase checkpoints (transient, deleted after successful run)
+phase1_*.csv
+phase2_*.csv
+runner_completed.csv
+
+# ChromaDB persistent store
+chroma_db/
+
+# Office temp lock files
+~$*
+
+# Worktrees
+.claude/worktrees/
