@@ -8,8 +8,9 @@ if "cfg" not in st.session_state:
     st.session_state.cfg = load_config()
 
 def _render_log(entries: list, container) -> None:
-    with container:
-        st.markdown("\n".join(entries[:50]))
+    # container ist ein st.empty()-Platzhalter: .markdown() ersetzt den Inhalt,
+    # statt anzuhängen (sonst akkumulieren sich die Logs 1+2+3+...).
+    container.markdown("\n".join(entries[:50]))
 
 tab_s, tab_p1, tab_p2, tab_r = st.tabs(
     ["⚙️ Einstellungen", "📷 Phase 1", "🧠 Phase 2", "🚀 Experiment-Runner"])
@@ -91,7 +92,7 @@ with tab_p1:
             else:
                 from phase1 import run_phase1
                 bar = st.progress(0.0)
-                log_box = st.container()
+                log_box = st.empty()
                 log_entries = []
                 for upd in run_phase1(
                     jsonl_path=jsonl_path, img_folder=cfg["img_folder"],
@@ -150,7 +151,7 @@ with tab_p2:
                 from rag import RagRetriever
                 rag_r = RagRetriever(os.path.join(cfg["results_folder"], "chroma_db"))
             bar = st.progress(0.0)
-            log_box = st.container()
+            log_box = st.empty()
             log_entries = []
             from phase2 import run_phase2
             for upd in run_phase2(
@@ -209,7 +210,7 @@ with tab_r:
         combo_info = st.empty()
         bar_total = st.progress(0.0)
         bar_combo = st.progress(0.0)
-        log_box = st.container()
+        log_box = st.empty()
         log_entries = []
         n_done = 0
         from experiment_runner import run_experiments
