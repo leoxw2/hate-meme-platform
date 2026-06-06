@@ -25,5 +25,8 @@ chroma_db/
 # Office temp lock files
 ~$*
 
+# Presentation (kept out of repo by request)
+PFT.pptx
+
 # Worktrees
 .claude/worktrees/
