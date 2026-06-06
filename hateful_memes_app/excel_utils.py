@@ -33,10 +33,18 @@ def read_prompts(filepath: str, sheet: str) -> dict[str, str]:
 
 def append_to_csv(row: dict, csv_path: str) -> None:
     """Hängt eine Zeile an CSV an. Erstellt Datei mit Header wenn nötig."""
-    write_header = not os.path.exists(csv_path)
+    file_exists = os.path.exists(csv_path)
+    if file_exists:
+        # Feldnamen aus existierender Datei lesen um Konsistenz zu gewährleisten
+        with open(csv_path, "r", newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            fieldnames = next(reader, list(row.keys()))
+    else:
+        fieldnames = list(row.keys())
+
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=row.keys())
-        if write_header:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        if not file_exists:
             writer.writeheader()
         writer.writerow(row)
 

@@ -224,6 +224,8 @@ with tab_r:
                                 f"**{upd['phase1']} × {upd['phase2']}**")
                 bar_total.progress(upd["index"] / max(upd["total"], 1))
                 bar_combo.progress(0.0)
+            elif upd["type"] == "combination_skip":
+                bar_total.progress(upd["index"] / max(upd["total"], 1))
             elif upd["type"] == "progress":
                 bar_combo.progress(upd["current"] / max(upd["total"], 1),
                                    text=f"{upd['current']} / {upd['total']}")

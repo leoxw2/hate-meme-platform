@@ -1,4 +1,4 @@
-import json, os
+import os
 import pandas as pd
 from phase2 import run_phase2
 from excel_utils import safe_sheet_name, append_to_csv
@@ -36,6 +36,8 @@ def run_experiments(phase1_selections: list[str], phase2_selections: list[str],
     for i, (phase1_sheet, phase2_name) in enumerate(combinations):
         combo_key = safe_sheet_name(f"{phase1_sheet}x{phase2_name}")
         if combo_key in completed:
+            yield {"type": "combination_skip", "phase1": phase1_sheet,
+                   "phase2": phase2_name, "index": i + 1, "total": total}
             continue
 
         base_prompt_key, use_rag, use_ft = PHASE2_CONFIG[phase2_name]

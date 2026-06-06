@@ -58,17 +58,13 @@ def run_phase2(phase1_excel: str, phase1_sheet: str,
 
     # CSV ist Checkpoint
     if resume and os.path.exists(csv_p):
-        processed_ids = set(pd.read_csv(csv_p)["id"].astype(int))
         existing = pd.read_csv(csv_p)
-        y_true = list(existing.loc[
-            (existing["status"] == "ok") & (existing["pred_label"].isin([0, 1])),
-            "true_label"].astype(int))
-        y_pred = list(existing.loc[
-            (existing["status"] == "ok") & (existing["pred_label"].isin([0, 1])),
-            "pred_label"].astype(int))
-        y_prob = list(existing.loc[
-            (existing["status"] == "ok") & (existing["pred_label"].isin([0, 1])),
-            "confidence"].astype(float))
+        processed_ids = set(existing["id"].astype(int))
+        mask = (existing["status"] == "ok") & (existing["pred_label"].isin([0, 1]))
+        filtered = existing.loc[mask]
+        y_true = list(filtered["true_label"].astype(int))
+        y_pred = list(filtered["pred_label"].astype(int))
+        y_prob = list(filtered["confidence"].astype(float))
     else:
         if os.path.exists(csv_p):
             os.remove(csv_p)
@@ -137,6 +133,7 @@ def run_phase2(phase1_excel: str, phase1_sheet: str,
     metrics = {}
     if y_true:
         metrics = calculate_metrics(y_true, y_pred, y_prob)
-        save_metrics_to_excel(phase2_excel, safe_sheet_name(f"M_{sheet_name}"), metrics)
+        metrics_sheet = safe_sheet_name(f"M_{phase1_sheet}x{prompt_name}")
+        save_metrics_to_excel(phase2_excel, metrics_sheet, metrics)
 
     yield {"type": "done", "metrics": metrics}

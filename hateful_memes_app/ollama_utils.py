@@ -21,5 +21,5 @@ def call_ollama(model: str, prompt: str, timeout_secs: int,
         return resp["message"]["content"], "ok"
     except Exception as e:
         err = str(e).lower()
-        status = "timeout" if ("time" in err or "timed out" in err) else f"error: {e}"
+        status = "timeout" if ("timed out" in err or "timeout" in err) else f"error: {e}"
         return "", status
