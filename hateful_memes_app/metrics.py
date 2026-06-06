@@ -10,7 +10,9 @@ def calculate_metrics(y_true: list, y_pred: list, y_prob: list) -> dict:
     y_prob_norm = [p / 100.0 for p in y_prob]
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
     try:
-        auroc = round(roc_auc_score(y_true, y_prob_norm), 4)
+        raw_auroc = roc_auc_score(y_true, y_prob_norm)
+        import math
+        auroc = round(raw_auroc, 4) if not math.isnan(raw_auroc) else "n/a"
     except ValueError:
         auroc = "n/a"
     return {
