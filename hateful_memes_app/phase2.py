@@ -11,6 +11,11 @@ from metrics import calculate_metrics, save_metrics_to_excel
 EVAL_TEMPERATURE = 0.0
 EVAL_SEED = 42
 
+# Base (non-FT) Phase-2 model. Must be the exact installed Ollama tag — a bare
+# "phi4-mini" does NOT resolve to "phi4-mini:3.8b" (Ollama needs the tag or
+# a :latest alias), which would fail every baseline run with "model not found".
+BASE_MODEL = "phi4-mini:3.8b"
+
 # Known limitation: Regex `_first_brace_block` bricht bei verschachteltem JSON
 # z.B. {"reasoning": "see {example}", "label": 1} → gibt -1 zurück (parse_error)
 def _first_brace_block(text: str) -> str:
@@ -58,7 +63,7 @@ def run_phase2(phase1_excel: str, phase1_sheet: str,
             if r.get("status") == "ok" and int(r["id"]) in true_labels]
     total = len(rows)
 
-    model_name = ft_model_path if (use_ft and ft_model_path) else "phi4-mini"
+    model_name = ft_model_path if (use_ft and ft_model_path) else BASE_MODEL
     sheet_name = safe_sheet_name(f"{phase1_sheet}x{prompt_name}")
     csv_p = _csv_path(results_folder, sheet_name)
     os.makedirs(results_folder, exist_ok=True)
