@@ -25,8 +25,8 @@ WARMUP_RATIO   = 0.03
 
 # Response-masking delimiters — must match Phi-4-mini's rendered chat template.
 # Verified at runtime in step 4b before training (review finding W2/L6).
-INSTRUCTION_PART = "<|user|>\n"
-RESPONSE_PART    = "<|assistant|>\n"
+INSTRUCTION_PART = "<|user|>"
+RESPONSE_PART    = "<|assistant|>"
 
 # ── Imports (only available on RunPod after: pip install -r requirements-train.txt) ──
 from unsloth import FastLanguageModel
