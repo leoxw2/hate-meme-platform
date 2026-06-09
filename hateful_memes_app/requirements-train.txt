@@ -1,0 +1,8 @@
+# Training dependencies (RunPod only — not used by the Streamlit app)
+# Install order matters: unsloth first, then trl/peft/accelerate/bitsandbytes without deps
+unsloth
+trl>=0.8.6
+peft>=0.10.0
+accelerate>=0.27.0
+bitsandbytes>=0.42.0
+datasets>=2.18.0
