@@ -26,6 +26,8 @@ DEFAULT_TRAIN_SHEET  = "ZS + RP"
 DEFAULT_TRAIN_JSONL  = os.path.join(_ROOT, "data", "train.jsonl")
 DEFAULT_HATRED_JSONL = os.path.join(_ROOT, "HatRed", "datasets", "hatred",
                                     "annotations", "fhm_train_reasonings.jsonl")
+DEFAULT_RACE_JSONL   = os.path.join(_ROOT, "HatRed", "datasets", "hatred",
+                                    "auxiliary", "fhm_train_race.jsonl")
 DEFAULT_PROMPTS_XLSX = os.path.join(_ROOT, "data", "prompts.xlsx")
 DEFAULT_OUTPUT_JSONL = os.path.join(_ROOT, "data", "finetune_data.jsonl")
 DEFAULT_PROMPT_NAME  = "ZS+RP+AD"
@@ -34,10 +36,8 @@ DEFAULT_SEED         = 42
 CONF_HATEFUL = (82, 96)
 CONF_BENIGN  = (4, 18)
 
-HATEFUL_TEMPLATE = (
-    "The meme targets a protected group through dehumanizing, stereotyping, "
-    "or inciting content."
-)
+# Hateful memes WITHOUT real HatReD reasoning are excluded from training
+# (we only train hateful examples that carry a genuine human-written rationale).
 BENIGN_TEMPLATE = (
     "No attack on a protected group is present. The content does not dehumanize, "
     "stereotype, or incite hatred toward any individual or group. The meme is not hateful."
@@ -84,6 +84,26 @@ def _load_hatred(hatred_jsonl: str) -> dict:
     return result
 
 
+def _load_race(race_jsonl: str) -> dict:
+    """Returns {id: race_string} from HatReD auxiliary race annotations.
+
+    Returns an empty dict if the file is missing (race enrichment is optional).
+    """
+    if not os.path.exists(race_jsonl):
+        return {}
+    result = {}
+    for entry in load_jsonl(race_jsonl):
+        img = entry.get("img", "")
+        try:
+            mid = int(os.path.splitext(os.path.basename(img))[0])
+        except ValueError:
+            continue
+        race = entry.get("race")
+        if race:
+            result[mid] = str(race)
+    return result
+
+
 def _load_system_prompt(prompts_xlsx: str, prompt_name: str) -> str:
     df = read_sheet(prompts_xlsx, "Phase2")
     match = df[df["Name"] == prompt_name]
@@ -95,17 +115,26 @@ def _load_system_prompt(prompts_xlsx: str, prompt_name: str) -> str:
     return str(match.iloc[0]["Prompt"])
 
 
-def _build_reasoning(label: int, mid: int, hatred_map: dict) -> str:
-    if label == 1 and mid in hatred_map:
+def _build_reasoning(label: int, mid: int, hatred_map: dict, race_map: dict) -> str:
+    """Build the assistant reasoning text.
+
+    For hateful memes (label==1) the caller guarantees mid is in hatred_map.
+    When a race annotation exists for the meme, it enriches the target prefix
+    (e.g. "Targets: the muslim (Middle Eastern Male).").
+    """
+    if label == 1:
         h = hatred_map[mid]
-        parts = []
         targets = [t for t in h["target"] if t is not None]
+        parts = []
         if targets:
-            parts.append(f"Targets: {', '.join(targets)}.")
+            target_str = ", ".join(targets)
+            race = race_map.get(mid)
+            if race:
+                parts.append(f"Targets: {target_str} ({race}).")
+            else:
+                parts.append(f"Targets: {target_str}.")
         parts.extend(h["reasonings"])
         return " ".join(parts)
-    if label == 1:
-        return HATEFUL_TEMPLATE
     return BENIGN_TEMPLATE
 
 
@@ -114,17 +143,24 @@ def build_finetune_data(
     train_sheet:  str = DEFAULT_TRAIN_SHEET,
     train_jsonl:  str = DEFAULT_TRAIN_JSONL,
     hatred_jsonl: str = DEFAULT_HATRED_JSONL,
+    race_jsonl:   str = DEFAULT_RACE_JSONL,
     prompts_xlsx: str = DEFAULT_PROMPTS_XLSX,
     output_jsonl: str = DEFAULT_OUTPUT_JSONL,
     prompt_name:  str = DEFAULT_PROMPT_NAME,
     seed:         int = DEFAULT_SEED,
 ) -> int:
-    """Build chat-format fine-tuning JSONL. Returns number of examples written."""
+    """Build chat-format fine-tuning JSONL. Returns number of examples written.
+
+    Hateful memes (label==1) WITHOUT a real HatReD reasoning are skipped — we
+    only train hateful examples that carry a genuine human-written rationale.
+    All benign memes (label==0) are kept and use the benign template.
+    """
     rng = random.Random(seed)
 
     desc_map      = _load_descriptions(train_xlsx, train_sheet)
     labels, texts = _load_labels_and_texts(train_jsonl)
     hatred_map    = _load_hatred(hatred_jsonl)
+    race_map      = _load_race(race_jsonl)
     system_prompt = _load_system_prompt(prompts_xlsx, prompt_name)
 
     valid_ids = sorted(set(desc_map) & set(labels))
@@ -133,15 +169,21 @@ def build_finetune_data(
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
 
+    written = 0
     with open(output_jsonl, "w", encoding="utf-8") as fout:
         for mid in valid_ids:
-            label       = labels[mid]
+            label = labels[mid]
+
+            # Skip hateful memes that have no human-written HatReD reasoning.
+            if label == 1 and mid not in hatred_map:
+                continue
+
             description = desc_map[mid]
             meme_text   = texts.get(mid, "")
 
             lo, hi     = CONF_HATEFUL if label == 1 else CONF_BENIGN
             confidence = rng.randint(lo, hi)
-            reasoning  = _build_reasoning(label, mid, hatred_map)
+            reasoning  = _build_reasoning(label, mid, hatred_map, race_map)
 
             assistant_json = json.dumps(
                 {"reasoning": reasoning, "label": label, "confidence": confidence},
@@ -155,8 +197,9 @@ def build_finetune_data(
                 ]
             }
             fout.write(json.dumps(example, ensure_ascii=False) + "\n")
+            written += 1
 
-    return len(valid_ids)
+    return written
 
 
 if __name__ == "__main__":

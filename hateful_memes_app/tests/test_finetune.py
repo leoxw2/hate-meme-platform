@@ -48,13 +48,24 @@ def _make_hatred_jsonl(path: str, rows: list) -> None:
             }) + "\n")
 
 
+def _make_race_jsonl(path: str, rows: list) -> None:
+    """rows: {id, race}"""
+    with open(path, "w") as f:
+        for r in rows:
+            f.write(json.dumps({
+                "id": r["id"],
+                "img": f"{r['id']:05d}.png",
+                "race": r["race"],
+            }) + "\n")
+
+
 @pytest.fixture
 def tmp_data(tmp_path):
     """
     6 memes: ids 100–105
-      100: label=1, HatReD covered (target + reasoning)
-      101: label=1, HatReD covered (reasoning only, no target)
-      102: label=1, NOT in HatReD → fallback hateful template
+      100: label=1, HatReD covered (target + reasoning), HAS race annotation
+      101: label=1, HatReD covered (reasoning only, no target), no race
+      102: label=1, NOT in HatReD → EXCLUDED from training
       103: label=0, benign
       104: label=0, benign
       105: status='missing_image' → must be excluded
@@ -79,22 +90,28 @@ def tmp_data(tmp_path):
         {"id": 100, "target": ["the jews"], "reasonings": ["mocks jewish people."]},
         {"id": 101, "target": [None],       "reasonings": ["dehumanizes immigrants."]},
     ]
+    race_rows = [
+        {"id": 100, "race": "Middle Eastern Male"},
+        # id 101 deliberately has no race entry
+    ]
 
     phase1_path  = str(tmp_path / "phase1.xlsx")
     prompts_path = str(tmp_path / "prompts.xlsx")
     train_path   = str(tmp_path / "train.jsonl")
     hatred_path  = str(tmp_path / "hatred.jsonl")
+    race_path    = str(tmp_path / "race.jsonl")
     output_path  = str(tmp_path / "finetune_data.jsonl")
 
     _make_phase1_xlsx(phase1_path, phase1_rows)
     _make_prompts_xlsx(prompts_path, "ZS+RP+AD", SYSTEM_PROMPT)
     _make_train_jsonl(train_path, train_rows)
     _make_hatred_jsonl(hatred_path, hatred_rows)
+    _make_race_jsonl(race_path, race_rows)
 
     return dict(
         phase1_path=phase1_path, prompts_path=prompts_path,
         train_path=train_path,   hatred_path=hatred_path,
-        output_path=output_path,
+        race_path=race_path,     output_path=output_path,
     )
 
 
@@ -103,6 +120,7 @@ def _run(tmp_data, **kwargs):
     defaults = dict(
         train_xlsx=d["phase1_path"], train_sheet="ZS + RP",
         train_jsonl=d["train_path"], hatred_jsonl=d["hatred_path"],
+        race_jsonl=d["race_path"],
         prompts_xlsx=d["prompts_path"], output_jsonl=d["output_path"],
         prompt_name="ZS+RP+AD", seed=42,
     )
@@ -118,11 +136,12 @@ def _load_output(path):
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 def test_row_count(tmp_data):
-    """5 ok examples (id 105 excluded: missing_image)."""
+    """4 examples: 100, 101 (hateful+HatReD), 103, 104 (benign).
+    Excluded: 105 (missing_image), 102 (hateful without HatReD reasoning)."""
     n = _run(tmp_data)
-    assert n == 5
+    assert n == 4
     rows = _load_output(tmp_data["output_path"])
-    assert len(rows) == 5
+    assert len(rows) == 4
 
 
 def test_chat_message_structure(tmp_data):
@@ -191,19 +210,31 @@ def test_hatred_reasoning_used(tmp_data):
     assert "dehumanizes immigrants" in by_text["text101"]["reasoning"]
 
 
-def test_hateful_fallback_template(tmp_data):
-    """ID 102 (hateful, no HatReD) uses the generic hateful template."""
+def test_race_enrichment(tmp_data):
+    """ID 100 has a race annotation → it enriches the target prefix.
+    ID 101 has no race → plain reasoning, no parenthetical race."""
+    _run(tmp_data)
+    rows = _load_output(tmp_data["output_path"])
+    by_text = {}
+    for row in rows:
+        user = row["messages"][1]["content"]
+        meme_text = user.split("Meme text: ")[1].split("\n\nImage description:")[0]
+        by_text[meme_text] = json.loads(row["messages"][2]["content"])
+
+    # id 100: "Targets: the jews (Middle Eastern Male)."
+    assert "the jews (Middle Eastern Male)" in by_text["text100"]["reasoning"]
+    # id 101: no race, no target → just the reasoning text, no parenthetical
+    assert "(" not in by_text["text101"]["reasoning"]
+
+
+def test_hateful_without_hatred_excluded(tmp_data):
+    """ID 102 (hateful, no HatReD reasoning) must be excluded from training."""
     _run(tmp_data)
     rows = _load_output(tmp_data["output_path"])
     for row in rows:
         user = row["messages"][1]["content"]
         meme_text = user.split("Meme text: ")[1].split("\n\nImage description:")[0]
-        if meme_text == "text102":
-            asst = json.loads(row["messages"][2]["content"])
-            assert asst["label"] == 1
-            assert len(asst["reasoning"]) > 10
-            return
-    pytest.fail("id 102 not found in output")
+        assert meme_text != "text102", "hateful meme without HatReD reasoning leaked into output"
 
 
 def test_benign_template(tmp_data):
