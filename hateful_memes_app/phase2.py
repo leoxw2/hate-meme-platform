@@ -10,6 +10,12 @@ from metrics import calculate_metrics, save_metrics_to_excel
 # identical labels/confidences (required for a reproducible benchmark).
 EVAL_TEMPERATURE = 0.0
 EVAL_SEED = 42
+# Max output tokens. Greedy stops at EOS, so a generous cap costs nothing but
+# protects verbose CoT baselines from truncated (invalid) JSON.
+EVAL_NUM_PREDICT = 800
+# Inference context window — matches train_qlora.py MAX_SEQ_LENGTH so long
+# image descriptions are never silently truncated at inference (train/eval parity).
+EVAL_NUM_CTX = 4096
 
 # Base (non-FT) Phase-2 model. Must be the exact installed Ollama tag — a bare
 # "phi4-mini" does NOT resolve to "phi4-mini:3.8b" (Ollama needs the tag or
@@ -108,9 +114,10 @@ def run_phase2(phase1_excel: str, phase1_sheet: str,
 
         raw, call_status = call_ollama(
             model=model_name, prompt=user_prompt,
-            timeout_secs=120, num_predict=500,
+            timeout_secs=120, num_predict=EVAL_NUM_PREDICT,
             system_prompt=system_prompt,
-            temperature=EVAL_TEMPERATURE, seed=EVAL_SEED)
+            temperature=EVAL_TEMPERATURE, seed=EVAL_SEED,
+            num_ctx=EVAL_NUM_CTX)
 
         if call_status != "ok":
             label, confidence, reasoning = -1, 0.0, call_status

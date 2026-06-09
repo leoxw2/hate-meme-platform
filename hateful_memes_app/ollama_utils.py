@@ -7,7 +7,8 @@ def call_ollama(model: str, prompt: str, timeout_secs: int,
                 num_predict: int, images: list[str] | None = None,
                 system_prompt: str | None = None,
                 temperature: float | None = None,
-                seed: int | None = None) -> tuple[str, str]:
+                seed: int | None = None,
+                num_ctx: int | None = None) -> tuple[str, str]:
     """Einheitlicher Ollama-Call für QWEN und PHI-4-MINI.
 
     Args:
@@ -43,7 +44,8 @@ def call_ollama(model: str, prompt: str, timeout_secs: int,
             messages=messages,
             options={k: v for k, v in {"num_predict": num_predict,
                                        "temperature": temperature,
-                                       "seed": seed}.items() if v is not None},
+                                       "seed": seed,
+                                       "num_ctx": num_ctx}.items() if v is not None},
         )
         return resp["message"]["content"], "ok"
     except Exception as e:
