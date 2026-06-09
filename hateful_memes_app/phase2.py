@@ -6,6 +6,11 @@ from excel_utils import (append_to_csv, csv_to_excel_sheet, get_sheet_names,
                          read_sheet, safe_sheet_name)
 from metrics import calculate_metrics, save_metrics_to_excel
 
+# Deterministic evaluation: greedy decoding + fixed seed so reruns reproduce
+# identical labels/confidences (required for a reproducible benchmark).
+EVAL_TEMPERATURE = 0.0
+EVAL_SEED = 42
+
 # Known limitation: Regex `_first_brace_block` bricht bei verschachteltem JSON
 # z.B. {"reasoning": "see {example}", "label": 1} → gibt -1 zurück (parse_error)
 def _first_brace_block(text: str) -> str:
@@ -43,7 +48,9 @@ def run_phase2(phase1_excel: str, phase1_sheet: str,
 
     Yielded: progress, log, done (mit metrics dict)
     """
-    phase1_df = read_sheet(phase1_excel, phase1_sheet)
+    # Phase-1 sheets are written via safe_sheet_name(); read with the same
+    # normalization so prompt names with >31 chars or special chars still resolve.
+    phase1_df = read_sheet(phase1_excel, safe_sheet_name(phase1_sheet))
     true_labels = {int(e["id"]): e["label"]
                    for e in load_jsonl(dev_jsonl_path) if "label" in e}
 
@@ -97,7 +104,8 @@ def run_phase2(phase1_excel: str, phase1_sheet: str,
         raw, call_status = call_ollama(
             model=model_name, prompt=user_prompt,
             timeout_secs=120, num_predict=500,
-            system_prompt=system_prompt, temperature=0.1)
+            system_prompt=system_prompt,
+            temperature=EVAL_TEMPERATURE, seed=EVAL_SEED)
 
         if call_status != "ok":
             label, confidence, reasoning = -1, 0.0, call_status

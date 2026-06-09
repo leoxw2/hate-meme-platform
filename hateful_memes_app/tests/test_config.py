@@ -3,8 +3,8 @@ from config import load_config, save_config, DEFAULT_CONFIG
 
 def test_load_returns_defaults_when_no_file():
     cfg = load_config("/nonexistent/config.json")
-    assert cfg["max_tokens_phase1"] == 2500
-    assert cfg["max_time_seconds"] == 120
+    assert cfg["max_tokens_phase1"] == DEFAULT_CONFIG["max_tokens_phase1"]
+    assert cfg["max_time_seconds"] == DEFAULT_CONFIG["max_time_seconds"]
 
 def test_save_and_load_roundtrip():
     with tempfile.TemporaryDirectory() as d:

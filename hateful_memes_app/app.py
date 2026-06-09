@@ -184,22 +184,34 @@ with tab_r:
     cfg = st.session_state.cfg
 
     st.subheader("Phase 1")
-    p1_opts = ["ZS", "ZS+RP+AD", "ZS+RP+CoT+AD", "ZS+RP+AD(min)"]
+    prompts_r1 = {}
+    if cfg.get("prompt_excel"):
+        from excel_utils import read_prompts
+        try:
+            prompts_r1 = read_prompts(cfg["prompt_excel"], "Phase1")
+        except Exception:
+            pass
+    p1_opts = list(prompts_r1.keys()) if prompts_r1 else ["ZS", "ZS+RP+AD", "ZS+RP+CoT+AD", "ZS+RP+AD(min)"]
     p1_sel = [n for n in p1_opts if st.checkbox(n, key=f"r1_{n}")]
 
     st.subheader("Phase 2")
+    st.caption("Optional — wenn leer wird nur Phase 1 durchgeführt.")
     p2_opts = ["ZS", "CoT+FS+AD", "CoT+FS+AD+RAG", "CoT+FS+AD+FT", "ZS+RAG", "ZS+FT"]
     p2_sel = [n for n in p2_opts if st.checkbox(n, key=f"r2_{n}")]
 
-    n = len(p1_sel) * len(p2_sel)
-    st.info(f"**{n} Kombinationen ausgewählt**")
+    n_p1 = len(p1_sel)
+    n_combos = len(p1_sel) * len(p2_sel)
+    if p2_sel:
+        st.info(f"**{n_p1} Phase-1-Prompt(s)** → **{n_combos} Phase-2-Kombinationen**")
+    else:
+        st.info(f"**{n_p1} Phase-1-Prompt(s)** ausgewählt (nur Phase 1)")
 
-    if st.button("🚀 Starten", disabled=(n == 0)):
-        prompts_r = {}
+    if st.button("🚀 Starten", disabled=(n_p1 == 0)):
+        prompts_r2 = {}
         if cfg.get("prompt_excel"):
             from excel_utils import read_prompts
             try:
-                prompts_r = read_prompts(cfg["prompt_excel"], "Phase2")
+                prompts_r2 = read_prompts(cfg["prompt_excel"], "Phase2")
             except Exception:
                 pass
         rag_r = None
@@ -207,20 +219,34 @@ with tab_r:
             from rag import RagRetriever
             rag_r = RagRetriever(os.path.join(cfg["results_folder"], "chroma_db"))
         dev_jsonl = os.path.join(os.path.dirname(cfg["img_folder"]), "dev.jsonl")
-        combo_info = st.empty()
-        bar_total = st.progress(0.0)
-        bar_combo = st.progress(0.0)
-        log_box = st.empty()
+        phase1_info = st.empty()
+        combo_info  = st.empty()
+        bar_total   = st.progress(0.0)
+        bar_combo   = st.progress(0.0)
+        log_box     = st.empty()
         log_entries = []
         n_done = 0
         from experiment_runner import run_experiments
         for upd in run_experiments(
             phase1_selections=p1_sel, phase2_selections=p2_sel,
-            prompts_phase2=prompts_r, phase1_excel=cfg["phase1_excel"],
+            prompts_phase1=prompts_r1, prompts_phase2=prompts_r2,
+            phase1_excel=cfg["phase1_excel"],
             dev_jsonl_path=dev_jsonl, phase2_excel=cfg["phase2_excel"],
             results_folder=cfg["results_folder"],
+            img_folder=cfg["img_folder"],
+            max_tokens=cfg.get("max_tokens_phase1", 3000),
+            max_time_secs=cfg.get("max_time_seconds", 150),
             ft_model_path=cfg.get("ft_model_path",""), rag_retriever=rag_r):
-            if upd["type"] == "combination_start":
+            if upd["type"] == "phase1_start":
+                phase1_info.info(f"⏳ Phase 1: **{upd['prompt']}** "
+                                 f"({upd['index']}/{upd['total']})")
+                bar_total.progress(0.0)
+                bar_combo.progress(0.0)
+            elif upd["type"] == "phase1_skip":
+                phase1_info.info(f"⏭️ Phase 1: **{upd['prompt']}** bereits vorhanden — übersprungen")
+            elif upd["type"] == "phase1_done":
+                phase1_info.success(f"✅ Phase 1: **{upd['prompt']}** abgeschlossen")
+            elif upd["type"] == "combination_start":
                 combo_info.info(f"Kombination {upd['index']}/{upd['total']}: "
                                 f"**{upd['phase1']} × {upd['phase2']}**")
                 bar_total.progress(upd["index"] / max(upd["total"], 1))
@@ -231,9 +257,9 @@ with tab_r:
                 bar_combo.progress(upd["current"] / max(upd["total"], 1),
                                    text=f"{upd['current']} / {upd['total']}")
             elif upd["type"] == "log":
-                icon = "🔴" if upd["label"] == 1 else "🟢"
+                icon = "🔴" if upd.get("label") == 1 else "🟢"
                 log_entries.insert(0,
-                    f"{icon} **ID {upd['id']}** | _{upd['text'][:60]}_\n\n---")
+                    f"{icon} **ID {upd['id']}** | _{upd.get('text','')[:60]}_\n\n---")
                 _render_log(log_entries, log_box)
             elif upd["type"] == "combination_done":
                 n_done += 1
@@ -243,4 +269,5 @@ with tab_r:
                                f"Acc {m.get('accuracy',0):.1%} | AUROC {m.get('auroc','n/a')}")
             elif upd["type"] == "all_done":
                 st.balloons()
-                st.success(f"Alle {n_done} Kombinationen abgeschlossen!")
+                st.success(f"Fertig! {n_p1} Phase-1-Prompt(s)"
+                           + (f", {n_done} Phase-2-Kombinationen" if n_done else "") + " abgeschlossen.")

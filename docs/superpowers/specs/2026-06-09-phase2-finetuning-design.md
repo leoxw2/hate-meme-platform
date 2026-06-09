@@ -146,6 +146,17 @@ Sprache durchgehend **Englisch** (Beschreibungen, Prompts, HatReD sind EN — da
 - **`max_seq_length`:** CoT+FS+AD-Prompt + lange Beschreibung muss < 4096 Tokens bleiben (vorab Längen prüfen).
 - **8 GB M2** reicht für Inferenz eines 2.5-GB-Modells; Training läuft ausschließlich auf RunPod.
 
+## 6b. Limitations (für Methoden-/Limitationsteil der Arbeit)
+
+Aus dem Code-Review (2026-06-09). Diese Punkte sind bewusst akzeptierte bzw. zu benennende Einschränkungen:
+
+- **L1 — FT-AUROC = Balanced Accuracy (konstruktionsbedingt).** Die Trainings-`confidence` wird aus dem Gold-Label in zwei nicht überlappende Bänder gesetzt (`label=1`→[82,96], `label=0`→[4,18]). Ein Modell, das das lernt, gibt eine Confidence aus, die faktisch nur das prädizierte Label wiederholt. Für solche Scores gilt `AUROC = (TPR+TNR)/2 = Balanced Accuracy`. **Konsequenz:** Die AUROC des FT-Modells trägt keine eigenständige Ranking-Information und ist **nicht** mit der AUROC der Nicht-FT-Modelle (selbstberichtete, gradierte `confidence`) vergleichbar. **Entscheidung:** FT-Bedingung wird auf **Accuracy/F1** verglichen; FT-AUROC wird nicht als eigenständige Metrik interpretiert. (Saubere Alternative für später: P(hateful) aus Label-Token-Logprobs statt verbalisierter Confidence — vereinheitlicht FT und Baseline, siehe §7.)
+- **L2 — Selbstberichtete Confidence (Nicht-FT) ist schlecht kalibriert.** `confidence/100` als P(hateful) ist ein etablierter „verbalized confidence"-Proxy, aber: LLM-Confidence ist unkalibriert, das `"confidence": 75`-Beispiel in jedem Prompt ankert die Ausgaben, und grobe/diskrete Werte erzeugen viele Ties. Als Proxy okay, in Limitations zu benennen.
+- **L3 — Ungleiche `n_samples` je Kombination.** `parse_error`/Timeout-Fälle werden aus den Metriken ausgeschlossen → jede Kombination evaluiert ggf. auf einer anderen (tendenziell leichteren) Teilmenge. `n_samples` wird mitgeführt; **Coverage (`n_samples/total`) ist beim Vergleich prominent auszuweisen.** (Alternative: `parse_error` als Fehlklassifikation werten.)
+- **L4 — Asymmetrische Trainings-Reasonings.** Alle 837 hateful-Beispiele tragen reichhaltige menschliche HatReD-Begründungen, alle 1000 benign-Beispiele exakt **denselben** `BENIGN_TEMPLATE`. Das erzeugt ein Längen-/Spezifitäts-Signal, das mit dem Label korreliert, und die Benign-`reasoning` des Modells ist gelernte Boilerplate (für die negative Klasse kein echtes CoT). Pragmatisch vertretbar, als Limitation zu benennen.
+- **L5 — Basismodell-/Template-Parität (zur Trainingszeit zu verifizieren).** Nicht-FT-Baseline = Ollamas `phi4-mini` (Q4), FT = unser Q4_K_M-GGUF. Vor dem Vergleich `ollama show phi4-mini --modelfile` gegen das exportierte Modelfile prüfen (gleiches TEMPLATE? gleiches Quant? injiziertes SYSTEM?). Bei Abweichung misst der Vergleich teils Quant/Template statt FT.
+- **L6 — `train_on_responses_only`-Delimiter (zur Trainingszeit zu verifizieren).** `instruction_part`/`response_part` müssen exakt dem gerenderten Phi-4-mini-Chat-Template entsprechen, sonst wird der Loss falsch maskiert. Vor dem vollen Lauf an einem Beispiel die maskierten Labels prüfen.
+
 ## 7. Nicht im Scope (YAGNI)
 - Fine-Tuning des Phase-1-VLM (multimodal) — nicht in der Matrix.
 - RAG-Zellen mit FT (`+RAG+FT`) — separat, später.

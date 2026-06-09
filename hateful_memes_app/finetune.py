@@ -10,9 +10,18 @@ Format per line:
       {"role": "assistant", "content": '{"reasoning": "…", "label": 0|1, "confidence": int}'}
   ]}
 
-Confidence encodes P(hateful) for AUROC:
-  label=1 → random int in [82, 96]   (high → correct positive signal)
-  label=0 → random int in [4, 18]    (low  → correct negative signal)
+Confidence target (label-consistent band, NOT a calibrated probability):
+  label=1 → random int in [82, 96]
+  label=0 → random int in [4, 18]
+
+This keeps the assistant JSON well-formed and the value plausibly aligned with
+the label. IMPORTANT CAVEAT for evaluation: because the bands do not overlap and
+are a function of the gold label, a model that learns them produces a confidence
+that is essentially a restatement of its predicted label. For such non-overlapping
+scores, AUROC reduces to (TPR + TNR)/2 = balanced accuracy. The fine-tuned model's
+AUROC is therefore NOT an independent ranking metric and must NOT be compared
+against the non-FT baselines' AUROC. Compare the FT condition on Accuracy/F1, and
+report this as a documented limitation (see the design spec, §Limitations).
 """
 import json, os, random
 from excel_utils import read_sheet

@@ -1,0 +1,10 @@
+{
+  "prompt_excel": "/root/hatememe/data/prompts.xlsx",
+  "img_folder": "/root/hatememe/data/img_train",
+  "results_folder": "/root/hatememe/results",
+  "max_tokens_phase1": 2500,
+  "max_time_seconds": 120,
+  "phase1_excel": "/root/hatememe/results/phase1_results.xlsx",
+  "phase2_excel": "/root/hatememe/results/phase2_results.xlsx",
+  "ft_model_path": ""
+}

@@ -23,6 +23,11 @@ GRAD_ACCUM     = 4
 LR             = 2e-4
 WARMUP_RATIO   = 0.03
 
+# Response-masking delimiters — must match Phi-4-mini's rendered chat template.
+# Verified at runtime in step 4b before training (review finding W2/L6).
+INSTRUCTION_PART = "<|user|>\n"
+RESPONSE_PART    = "<|assistant|>\n"
+
 # ── Imports (only available on RunPod after: pip install -r requirements-train.txt) ──
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import train_on_responses_only
@@ -85,6 +90,21 @@ def main():
     print(dataset[0]["text"][:600])
     print("…\n")
 
+    # 4b. Verify the response-masking delimiters actually exist in the rendered
+    # chat template BEFORE training. If Phi-4-mini renders different markers,
+    # train_on_responses_only would silently mask the wrong tokens — fail loudly
+    # here instead of wasting a full training run (review finding W2/L6).
+    rendered = dataset[0]["text"]
+    missing = [d for d in (INSTRUCTION_PART, RESPONSE_PART) if d not in rendered]
+    if missing:
+        raise SystemExit(
+            "Chat-template delimiter(s) not found in rendered example: "
+            f"{missing!r}\nInspect the printed example above and update "
+            "INSTRUCTION_PART / RESPONSE_PART to match Phi-4-mini's template."
+        )
+    print(f"Delimiter check OK: instruction={INSTRUCTION_PART!r} "
+          f"response={RESPONSE_PART!r}\n")
+
     # 5. Trainer
     trainer = SFTTrainer(
         model=model,
@@ -109,15 +129,11 @@ def main():
         ),
     )
 
-    # 6. Train only on assistant responses
-    # Phi-4-mini chat template uses <|user|> / <|assistant|> delimiters.
-    # Verify with: print(tokenizer.apply_chat_template(
-    #     [{"role":"user","content":"hi"},{"role":"assistant","content":"ok"}],
-    #     tokenize=False)) — look for the exact strings around the turns.
+    # 6. Train only on assistant responses (delimiters verified in step 4b).
     trainer = train_on_responses_only(
         trainer,
-        instruction_part="<|user|>\n",
-        response_part="<|assistant|>\n",
+        instruction_part=INSTRUCTION_PART,
+        response_part=RESPONSE_PART,
     )
 
     # 7. Train

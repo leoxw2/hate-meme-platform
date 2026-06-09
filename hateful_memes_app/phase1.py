@@ -55,11 +55,14 @@ def run_phase1(jsonl_path: str, img_folder: str, phase1_excel: str,
             with open(img_path, "rb") as f:
                 img_b64 = base64.b64encode(f.read()).decode()
             description, status = call_ollama(
-                model="qwen2.5vl:3b",
-                prompt=prompt_text,
+                model="qwen3-vl:4b",
+                prompt="",
+                system_prompt=prompt_text,
                 timeout_secs=max_time_secs,
                 num_predict=max_tokens,
                 images=[img_b64],
+                temperature=0.0,   # greedy: reproducible descriptions
+                seed=42,
             )
 
         if status == "ok":
