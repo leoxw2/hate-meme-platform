@@ -91,13 +91,13 @@ def run_phase2(phase1_excel: str, phase1_sheet: str,
         if rag_context:
             context_block = "\n\nRelevantes Hintergrundwissen:\n" + "\n".join(
                 f"- {c}" for c in rag_context)
-        final_prompt = (f"{prompt_text}{context_block}\n\n"
-                        f"Bildbeschreibung: {description}\n"
-                        f"Text auf dem Bild: {meme_text}")
+        system_prompt = f"{prompt_text}{context_block}"
+        user_prompt = f"Meme text: {meme_text}\n\nImage description: {description}"
 
         raw, call_status = call_ollama(
-            model=model_name, prompt=final_prompt,
-            timeout_secs=60, num_predict=300)
+            model=model_name, prompt=user_prompt,
+            timeout_secs=120, num_predict=500,
+            system_prompt=system_prompt, temperature=0.1)
 
         if call_status != "ok":
             label, confidence, reasoning = -1, 0.0, call_status

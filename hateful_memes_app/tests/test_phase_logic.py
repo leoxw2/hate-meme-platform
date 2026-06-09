@@ -16,6 +16,15 @@ def test_parse_invalid_returns_minus_one():
     label, _, _ = _parse_json_response("Not JSON at all.")
     assert label == -1
 
+def test_user_prompt_format():
+    """phase2 user turn must be 'Meme text: …\\n\\nImage description: …' in English."""
+    description = "A cat on a mat."
+    meme_text = "hello world"
+    user_prompt = f"Meme text: {meme_text}\n\nImage description: {description}"
+    assert user_prompt == "Meme text: hello world\n\nImage description: A cat on a mat."
+    assert "Bildbeschreibung" not in user_prompt
+    assert "Text auf dem Bild" not in user_prompt
+
 # Known limitation: Regex bricht bei verschachteltem JSON
 # z.B. {"reasoning": "see {example}", "label": 1} → wird falsch geparst
 # Akzeptables Verhalten: gibt -1 zurück, Eintrag wird als parse_error markiert
