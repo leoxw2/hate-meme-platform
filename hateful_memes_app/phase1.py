@@ -61,7 +61,7 @@ def run_phase1(jsonl_path: str, img_folder: str, phase1_excel: str,
                 timeout_secs=max_time_secs,
                 num_predict=max_tokens,
                 images=[img_b64],
-                temperature=0.0,   # greedy: reproducible descriptions
+                temperature=0.1,   # low temp + fixed seed: reproducible descriptions
                 seed=42,
             )
 

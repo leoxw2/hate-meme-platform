@@ -6,9 +6,9 @@ from excel_utils import (append_to_csv, csv_to_excel_sheet, get_sheet_names,
                          read_sheet, safe_sheet_name)
 from metrics import calculate_metrics, save_metrics_to_excel
 
-# Deterministic evaluation: greedy decoding + fixed seed so reruns reproduce
-# identical labels/confidences (required for a reproducible benchmark).
-EVAL_TEMPERATURE = 0.0
+# Reproducible evaluation: low temperature + fixed seed. With seed pinned, Ollama
+# seeds the sampling RNG, so reruns reproduce identical labels/confidences.
+EVAL_TEMPERATURE = 0.1
 EVAL_SEED = 42
 # Max output tokens. Greedy stops at EOS, so a generous cap costs nothing but
 # protects verbose CoT baselines from truncated (invalid) JSON.
