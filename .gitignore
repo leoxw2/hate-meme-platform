@@ -30,3 +30,15 @@ PFT.pptx
 
 # Worktrees
 .claude/worktrees/
+
+# Python virtual environments (regenerable, machine-specific, multi-GB)
+.venv/
+
+# Large model weights (exceed GitHub's 100 MB file limit; Modelfile is kept)
+*.gguf
+
+# macOS folder metadata
+.DS_Store
+
+# External third-party repo (cloned, not redistributed) — see README
+HatRed/

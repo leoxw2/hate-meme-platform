@@ -1,0 +1,10 @@
+{
+  "prompt_excel": "C:\\Users\\Leopo\\Claude_Projekte\\hate_meme_platform\\data\\prompts.xlsx",
+  "img_folder": "C:\\Users\\Leopo\\Claude_Projekte\\hate_meme_platform\\data\\img",
+  "results_folder": "C:\\Users\\Leopo\\Claude_Projekte\\hate_meme_platform\\data",
+  "max_tokens_phase1": 2500,
+  "max_time_seconds": 120,
+  "phase1_excel": "C:\\Users\\Leopo\\Claude_Projekte\\hate_meme_platform\\data\\phase1_results.xlsx",
+  "phase2_excel": "C:\\Users\\Leopo\\Claude_Projekte\\hate_meme_platform\\data\\phase2_results.xlsx",
+  "ft_model_path": "phase2-ft"
+}

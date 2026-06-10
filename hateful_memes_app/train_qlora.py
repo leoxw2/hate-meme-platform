@@ -124,7 +124,7 @@ def main():
             seed=SEED,
             output_dir="checkpoints",
             logging_steps=25,
-            save_strategy="epoch",
+            save_strategy="no",
             report_to="none",
         ),
     )
