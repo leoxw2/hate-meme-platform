@@ -41,4 +41,5 @@ PFT.pptx
 .DS_Store
 
 # External third-party repo (cloned, not redistributed) — see README
-HatRed/
+# Anchored, no trailing slash: also ignores the embedded-repo gitlink
+/HatRed
